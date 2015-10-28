@@ -5,12 +5,19 @@
     <title>Todo Appbase React</title>
     <script src="bower_components/appbase-js/browser/appbase.js"></script>
     <script src="bower_components/react/react.js"></script>
+    <script src="config.js"></script>
     <script src="bower_components/react/react-dom.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
   </head>
   <body>
     <div id="todolist"></div>
     <script type="text/babel">
+        var appbase = new Appbase({
+          url:credentials.url,
+          appname:credentials.appname,
+          username:credentials.username,
+          password:credentials.password
+        })
     		var TodoList = React.createClass({ // function that helps in creating list
     			render:function(){
     				var createItem = function(text,index){
@@ -28,7 +35,18 @@
     			},
     			submitFrom:function(e){
     				e.preventDefault();
-
+            appbase.index({
+              type:"todo",
+              id:Date.now(),
+              body:{
+                "task":this.state.text,
+                "done":false
+              }
+            }).on('data',function(response){
+              console.log(response);
+            }).on('error',function(err){
+              console.log(err);
+            })
     				var newItem=this.state.items.concat([this.state.text]);
     				var newText='';
     				this.setState({items:newItem,text:newText});
