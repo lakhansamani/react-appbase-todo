@@ -7,6 +7,7 @@
     <script src="bower_components/react/react.js"></script>
     <script src="config.js"></script>
     <script src="bower_components/react/react-dom.js"></script>
+    <script src="bower_components/underscore/underscore.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
   </head>
   <body>
@@ -18,21 +19,68 @@
           username:credentials.username,
           password:credentials.password
         })
+        var Data = {};
+
+        var dataChange = function(callback){
+            if(callback){
+            	callback(Data);
+                appbase.searchStream({
+                  type:'todo',
+                  body:{
+                    query:{
+                      match_all:{}
+                    }
+                  }
+                }).on('data',function(response){
+                  Data.value=response;
+                  //console.log(Data);
+                  callback(Data);
+                }).on('error',function(err){
+                  console.log(err);
+                })
+            }
+            return Data;
+        };
+
     		var TodoList = React.createClass({ // function that helps in creating list
     			render:function(){
-    				var createItem = function(text,index){
-    					return <li key={index+text}>{text}</li>;
+    				var createItem = function(item){
+    					return <li key={item._id}>{item._source.task}</li>;
     				};
-    				return <ul>{this.props.items.map(createItem)}</ul>;
+    				return <ul>{this.props.items.map(function(value) {
+                return <li key={value._id}>{value._source.task}</li>
+            })}</ul>;
     			}
     		})
     		var TodoApp = React.createClass({
+
     			getInitialState:function(){
-    				return {items:[],text:''};
+    				return {items:[],text:'',data:this.props.dataChange()};
     			},
+          componentDidMount: function() {
+              this.props.dataChange(this.updateHandler)
+          },
+
     			onChange:function(e){
     				this.setState({text:e.target.value});
     			},
+          updateHandler: function(data) {
+              this.setState({text:''});
+              if(data.value){
+                if(data.value.hits){
+                  this.setState({
+                    data: data,
+                    items:data.value.hits.hits
+                  });
+                }
+                //only one row changed
+                else{
+                  var tmp=[data.value];
+                  var x=_.union(this.state.items,tmp)
+                  this.setState({items:_.uniq(x)});
+                }
+              }
+          },
     			submitFrom:function(e){
     				e.preventDefault();
             appbase.index({
@@ -43,13 +91,10 @@
                 "done":false
               }
             }).on('data',function(response){
-              console.log(response);
+
             }).on('error',function(err){
-              console.log(err);
+
             })
-    				var newItem=this.state.items.concat([this.state.text]);
-    				var newText='';
-    				this.setState({items:newItem,text:newText});
     			},
     			render:function(){
     				return(
@@ -64,7 +109,7 @@
     				);
     			}
     		})
-    		ReactDOM.render(<TodoApp />,document.getElementById('todolist'));
+    		ReactDOM.render(<TodoApp dataChange={dataChange} />,document.getElementById('todolist'));
     </script>
   </body>
 </html>
